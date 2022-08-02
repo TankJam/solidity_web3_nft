@@ -141,7 +141,12 @@ contract MyEpicNFT is ERC721URIStorage {
                 )
             )
         );
-        string memory finalTokenUri = "ipfs://INSERT_YOUR_CID_HERE";
+        string memory finalTokenUri = string(
+            abi.encodePacked("data:application/json;base64,", json)
+        );
+        console.log("\n--------------------");
+        console.log(finalTokenUri);
+        console.log("--------------------\n");
         _safeMint(msg.sender, newItemId);
         _setTokenURI(newItemId, finalTokenUri);
         _tokenIds.increment();

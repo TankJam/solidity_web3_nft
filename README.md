@@ -677,3 +677,30 @@ module.exports = {
 
 ##### 5.本项目使用 Pinata作为pinning服务存储NFT图片
 - 将图片上传到Pinata，它可以提供1GB的免费存储空间，足以容纳1000多个资产。只需要创建一个账户，通过用户界面上传图像文件即可;
+
+#### 3) 在 Etherscan 上验证合约
+https://rinkeby.etherscan.io/address/0x902ebbecafc54f7a8013a9d7954e7355309b50e6#code
+在etherscan可以查看合约源码
+- 依赖下载： npm i -D @nomiclabs/hardhat-etherscan
+- 修改hardhat.config.js 文件
+```javascript
+require("@nomiclabs/hardhat-etherscan");
+// Rest of code
+...
+module.exports = {
+  solidity: "0.8.1",
+  // Rest of the config
+  ...,
+  etherscan: {
+    // Your API key for Etherscan
+    // Obtain one at https://etherscan.io/
+    apiKey: "",  // 需要去 https://etherscan.io/myapikey 注册并且add api key;
+  }
+};
+```
+
+- 解析字节码查看源码命令
+  - 0x533c99FeBbeAd431F3c48562Fb3b112c6F82AA75
+  - npx hardhat verify 0x533c99FeBbeAd431F3c48562Fb3b112c6F82AA75 --network rinkeby 
+  - 或者npx hardhat verify --contract contracts/MyEpicNFT.sol:MyEpicNFT  --network rinkeby 0x86CbB477Fb4eA09fb687e98Eec22d443C0Ee0BBc
+
