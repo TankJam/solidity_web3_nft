@@ -313,11 +313,364 @@ const askContractToMintNft = async () => {
 ### 1、web应用程序的收尾工作
 - 修改合约
 ```javascript
-
+// SPDX-License-Identifier: UNLICENSED
+pragma solidity ^0.8.9;
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
+import "@openzeppelin/contracts/utils/Counters.sol";
+import "hardhat/console.sol";
+import "@openzeppelin/contracts/utils/Strings.sol";
+import {Base64} from "./libraries/Base64.sol";
+contract MyEpicNFT is ERC721URIStorage {
+    using Counters for Counters.Counter;
+    Counters.Counter private _tokenIds;
+    constructor() ERC721("SquareNFT", "SQUARE") {
+        console.log("This is my NFT contract. Woah!");
+    }
+    string baseSvg =
+        "<svg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='xMinYMin meet' viewBox='0 0 350 350'><style>.base { fill: white; font-family: serif; font-size: 24px; }</style><rect width='100%' height='100%' fill='black' /><text x='50%' y='50%' class='base' dominant-baseline='middle' text-anchor='middle'>";
+    string[] firstWords = [
+        "JayChou",
+        "AndyLau",
+        "YiBo",
+        "SeanXiao",
+        "Hugh",
+        "FayeWong"
+    ];
+    string[] secondWords = [
+        "Banana",
+        "Orange",
+        "Cherry",
+        "Lemon",
+        "Apple",
+        "Watermelon"
+    ];
+    string[] thirdWords = [
+        "Naruto",
+        "Sasuke",
+        "Kakashi",
+        "Hinata",
+        "Iruka",
+        "Gaara"
+    ];
+    // We split the SVG at the part where it asks for the background color.
+    string svgPartOne =
+        "<svg xmlns='http://www.w3.org/2000/svg' preserveAspectRatio='xMinYMin meet' viewBox='0 0 350 350'><style>.base { fill: white; font-family: serif; font-size: 24px; }</style><rect width='100%' height='100%' fill='";
+    string svgPartTwo =
+        "'/><text x='50%' y='50%' class='base' dominant-baseline='middle' text-anchor='middle'>";
+    // Get fancy with it! Declare a bunch of colors.
+    string[] colors = [
+        "red",
+        "#08C2A8",
+        "black",
+        "yellow",
+        "blue",
+        "green",
+        "#DDA0DD",
+        "#87CEEB",
+        "#FFDEAD",
+        "#FA8072"
+    ];
+    event NewEpicNFTMinted(address sender, uint256 tokenId);
+    function pickRandomFirstWord(uint256 tokenId)
+        public
+        view
+        returns (string memory)
+    {
+        uint256 rand = random(
+            string(abi.encodePacked("FIRST_WORD", Strings.toString(tokenId)))
+        );
+        rand = rand % firstWords.length;
+        return firstWords[rand];
+    }
+    function pickRandomSecondWord(uint256 tokenId)
+        public
+        view
+        returns (string memory)
+    {
+        uint256 rand = random(
+            string(abi.encodePacked("SECOND_WORD", Strings.toString(tokenId)))
+        );
+        rand = rand % secondWords.length;
+        return secondWords[rand];
+    }
+    function pickRandomThirdWord(uint256 tokenId)
+        public
+        view
+        returns (string memory)
+    {
+        uint256 rand = random(
+            string(abi.encodePacked("THIRD_WORD", Strings.toString(tokenId)))
+        );
+        rand = rand % thirdWords.length;
+        return thirdWords[rand];
+    }
+    // Same old stuff, pick a random color.
+    function pickRandomColor(uint256 tokenId)
+        public
+        view
+        returns (string memory)
+    {
+        uint256 rand = random(
+            string(abi.encodePacked("COLOR", Strings.toString(tokenId)))
+        );
+        rand = rand % colors.length;
+        return colors[rand];
+    }
+    function random(string memory input) internal pure returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(input)));
+    }
+    function makeAnEpicNFT() public {
+        uint256 newItemId = _tokenIds.current();
+        string memory first = pickRandomFirstWord(newItemId);
+        string memory second = pickRandomSecondWord(newItemId);
+        string memory third = pickRandomThirdWord(newItemId);
+        string memory combinedWord = string(
+            abi.encodePacked(first, second, third)
+        );
+        // Add the random color in.
+        string memory randomColor = pickRandomColor(newItemId);
+        // string memory finalSvg = string(
+        //     abi.encodePacked(baseSvg, combinedWord, "</text></svg>")
+        // );
+        string memory finalSvg = string(
+            abi.encodePacked(
+                svgPartOne,
+                randomColor,
+                svgPartTwo,
+                combinedWord,
+                "</text></svg>"
+            )
+        );
+        string memory json = Base64.encode(
+            bytes(
+                string(
+                    abi.encodePacked(
+                        '{"name": "',
+                        // We set the title of our NFT as the generated word.
+                        combinedWord,
+                        '", "description": "A highly acclaimed collection of squares.", "image": "data:image/svg+xml;base64,',
+                        // We add data:image/svg+xml;base64 and then append our base64 encode our svg.
+                        Base64.encode(bytes(finalSvg)),
+                        '"}'
+                    )
+                )
+            )
+        );
+        string memory finalTokenUri = string(
+            abi.encodePacked("data:application/json;base64,", json)
+        );
+        console.log("\n--------------------");
+        console.log(finalTokenUri);
+        console.log("--------------------\n");
+        _safeMint(msg.sender, newItemId);
+        _setTokenURI(newItemId, finalTokenUri);
+        _tokenIds.increment();
+        console.log(
+            "An NFT w/ ID %s has been minted to %s",
+            newItemId,
+            msg.sender
+        );
+        emit NewEpicNFTMinted(msg.sender, newItemId);
+    }
+}
 ```
 - 修改react的app.jsx
 ```javascript
+import React, { useEffect, useState } from "react";
+import './styles/App.css';
+import twitterLogo from './assets/twitter-logo.svg';
+import { ethers } from "ethers";
+import myEpicNft from './utils/MyEpicNFT.json';
+const TWITTER_HANDLE = '_buildspace';
+const TWITTER_LINK = `https://twitter.com/${TWITTER_HANDLE}`;
+const OPENSEA_LINK = '';
+const TOTAL_MINT_COUNT = 50;
+// I moved the contract address to the top for easy access.
+const CONTRACT_ADDRESS = "0x779877F4F6B2fBaf2298FF96394D393A753E81F2";
+const App = () => {
+  const [currentAccount, setCurrentAccount] = useState("");
 
+  const checkIfWalletIsConnected = async () => {
+    const { ethereum } = window;
+    if (!ethereum) {
+      console.log("Make sure you have metamask!");
+      return;
+    } else {
+      console.log("We have the ethereum object", ethereum);
+    }
+    const accounts = await ethereum.request({ method: 'eth_accounts' });
+    if (accounts.length !== 0) {
+      const account = accounts[0];
+      console.log("Found an authorized account:", account);
+      setCurrentAccount(account);
+      setupEventListener()
+
+    } else {
+      console.log("No authorized account found");
+    }
+  }
+  /*
+  * Implement your connectWallet method here
+  */
+  const connectWallet = async () => {
+    try {
+      const { ethereum } = window;
+      if (!ethereum) {
+        alert("Get MetaMask!");
+        return;
+      }
+      /*
+      * Fancy method to request access to account.
+      */
+      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      console.log("Connected", accounts[0]);
+      setCurrentAccount(accounts[0]);
+      // Setup listener! This is for the case where a user comes to our site
+      // and connected their wallet for the first time.
+      setupEventListener()
+
+    } catch (error) {
+      console.log(error);
+    }
+  }
+  // Setup our listener.
+  const setupEventListener = async () => {
+    // Most of this looks the same as our function askContractToMintNft
+    try {
+      const { ethereum } = window;
+      if (ethereum) {
+        // Same stuff again
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(CONTRACT_ADDRESS, myEpicNft.abi, signer);
+        // THIS IS THE MAGIC SAUCE.
+        // This will essentially "capture" our event when our contract throws it.
+        // If you're familiar with webhooks, it's very similar to that!
+        connectedContract.on("NewEpicNFTMinted", (from, tokenId) => {
+          console.log(from, tokenId.toNumber())
+          alert(`Hey there! We've minted your NFT and sent it to your wallet. It may be blank right now. It can take a max of 10 min to show up on OpenSea. Here's the link: https://testnets.opensea.io/assets/${CONTRACT_ADDRESS}/${tokenId.toNumber()}`)
+        });
+        console.log("Setup event listener!")
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  // Render Methods
+  const renderNotConnectedContainer = () => (
+    <button onClick={connectWallet} className="cta-button connect-wallet-button">
+      Connect to Wallet
+    </button>
+  );
+  useEffect(() => {
+    checkIfWalletIsConnected();
+  }, [])
+  const askContractToMintNft = async () => {
+    try {
+      const { ethereum } = window;
+      if (ethereum) {
+        const provider = new ethers.providers.Web3Provider(ethereum);
+        const signer = provider.getSigner();
+        const connectedContract = new ethers.Contract(CONTRACT_ADDRESS, myEpicNft.abi, signer);
+        console.log("Going to pop wallet now to pay gas...")
+        let nftTxn = await connectedContract.makeAnEpicNFT();
+        console.log("Mining...please wait.")
+        await nftTxn.wait();
+        console.log(nftTxn);
+        console.log(`Mined, see transaction: https://rinkeby.etherscan.io/tx/${nftTxn.hash}`);
+      } else {
+        console.log("Ethereum object doesn't exist!");
+      }
+    } catch (error) {
+      console.log(error)
+    }
+  }
+
+  /*
+  * Added a conditional render! We don't want to show Connect to Wallet if we're already connected :).
+  */
+  return (
+    <div className="App">
+      <div className="container">
+        <div className="header-container">
+          <p className="header gradient-text">My NFT Collection</p>
+          <p className="sub-text">
+            Each unique. Each beautiful. Discover your NFT today.
+          </p>
+          {currentAccount === ""
+            ? renderNotConnectedContainer()
+            : (
+              /** Add askContractToMintNft Action for the onClick event **/
+              <button onClick={askContractToMintNft} className="cta-button connect-wallet-button">
+                Mint NFT
+              </button>
+            )
+          }
+        </div>
+      </div>
+    </div>
+  );
+};
+export default App;
 ```
 
 ### 2、发布
+#### 1）隐藏私钥信息 - hardhat.config.js
+```javascript
+require('@nomiclabs/hardhat-waffle');
+require('dotenv').config();
+module.exports = {
+  solidity: '0.8.1',
+  networks: {
+    rinkeby: {  // 测试
+      url: process.env.STAGING_ALCHEMY_KEY,
+      accounts: [process.env.PRIVATE_KEY],
+    },
+    mainnet: {  // 生产
+      chainId: 1,
+      url: process.env.PROD_ALCHEMY_KEY,
+      accounts: [process.env.PRIVATE_KEY],
+    },
+  },
+};
+```
+
+#### 2）使用IPFS（分布式点对点文件共享网络）升级NFT
+
+##### 1.IPFS是什么？有什么作用
+- IPFS是一个分布式文件系统，类似于 s3 或 gcp storage之类的存储，但是与集中式服务有区别，用于存储 NFT 资产的行业标准。它是不可变的、永久的和去中心化的。
+- 由于以太坊存储成本非常昂贵，而且合约也有长度限制，若想制作一个非常精美的nft，合约就不适合存储，所以需要找到一个可以存储NFT的地方;
+- IPFS可以用备份数字文件，（代币、NFT、加密藏品）
+
+##### 2.为什么要使用IPFS
+- 集中式服务:
+  - 出现故障，DNS问题，分布式拒绝DDOS攻击，会导致用户无法访问;
+
+- IPFS:
+  - 去中心化点对点文件共享网络服务，主要是解决集中的故障点和审查工作，以确保所有人都可以自由访问网络;
+
+##### 3.官网解释
+- 3.1 IPFS是什么？
+  - IPFS由Protocol Labs构建，是一项依赖于托管内容的分布式计算机网络服务，例如网页、文件、应用程序，可以通过输入链接来获取所有内容;
+  - IPFS链接不会将您指向某个位置，而是将您指向内容，这些内容可以存储在世界各地的任意数量的节点或计算机上。但是，只要网站或内容至少托管
+在一台计算机上，它始终是可以访问的;
+
+- 3.2 IPFS工作原理
+  - 上传到IPFS的文件被分成更小的块、分布在多台计算机上，并分配一个哈希值以允许用户找到他们。IPFS链接并不指向某个节点的位置，而是基于每个
+项目的唯一哈希标识符。这有助于定位哪些节点或哪些节点具有可用的文件或网站;然后通过点对点连接并将数据提供给用户，类似于BitTorrent技术;
+  - IPFS不是基于区块链的，它同样是不可变的（内容不可变、否则哈希本身也会随之改变）,但是IPFS有个版本控制系统，可以在添加新版本文件并将
+其连接到前一个版本，从而确保维护整个历史记录;
+
+- 3.3 使用IPFS的企业
+  - Filecoin: Protocol Labs自己的分布式存储网络，基于IPFS。通过加密货币奖励激励节点运营商托管文件;
+  - Audius去中心化的音乐服务，使用IPFS来托管音频文件;
+  - Pinata是NFT托管服务，使用IPFS为Rarible和Sorare等合作伙伴备份加密收藏品;
+  - OpenBazaar是一个由IPFS驱动的点对点电子商务平台;
+  - Morpheus.Network是一种供应链网络服务，也是通过IPFS来实现;
+
+
+##### 4.如何使用
+- 部分浏览器支持原生IPFS浏览，而另一些需要安装插件;只需要将链接粘贴到浏览器中并转到站点或文件即可;
